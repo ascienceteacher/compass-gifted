@@ -1,11 +1,6 @@
-# Compass
+# Compass GitHub Landing Page
 
-Find Your Direction. Follow Your Curiosity.
-
-This GitHub Pages landing page opens the live Compass Google Apps Script app.
-
-Live app:
-https://script.google.com/a/macros/rowlettmiddleacademy.org/s/AKfycbwcfkYd7PvrlotUkpbHFWKeilSfW3imbk5T3mh3icfQjpSGZOnpTizIRpsqfqyOpvrO/exec
+This version visually matches the Compass Apps Script landing page.
 
 ## Files to upload
 
@@ -13,18 +8,10 @@ https://script.google.com/a/macros/rowlettmiddleacademy.org/s/AKfycbwcfkYd7Pvrlo
 - rowlie-compass.png
 - README.md
 
-## GitHub Pages
+Upload all three files to the root of the `compass-gifted` repository.
 
-In the repository, open:
+The Enter Compass button already opens the live Apps Script app.
 
-Settings → Pages
-
-Choose:
-
-- Source: Deploy from a branch
-- Branch: main
-- Folder: / (root)
-
-The expected public address is:
+Expected GitHub Pages address:
 
 https://ascienceteacher.github.io/compass-gifted/
