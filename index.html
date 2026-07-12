@@ -1,255 +1,49 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Compass | Find Your Direction</title>
-
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
-
-  <style>
-    :root{
-      --navy:#0b1f3a;
-      --blue:#1657c8;
-      --red:#ef3734;
-      --yellow:#ffd43b;
-      --white:#ffffff;
-      --black:#111111;
-      --paper:#f7f4ea;
-    }
-
-    *{box-sizing:border-box}
-
-    body{
-      margin:0;
-      min-height:100vh;
-      font-family:'Nunito',Arial,sans-serif;
-      color:var(--navy);
-      background:
-        linear-gradient(90deg,rgba(17,17,17,.05) 2px,transparent 2px),
-        linear-gradient(rgba(17,17,17,.05) 2px,transparent 2px),
-        var(--paper);
-      background-size:90px 90px;
-    }
-
-    .mondrian-top{
-      height:20px;
-      display:grid;
-      grid-template-columns:2fr 1fr 3fr 1fr 2fr;
-      border-bottom:5px solid var(--black);
-    }
-
-    .mondrian-top span{
-      border-right:5px solid var(--black);
-    }
-
-    .mondrian-top span:nth-child(1){background:var(--red)}
-    .mondrian-top span:nth-child(2){background:var(--yellow)}
-    .mondrian-top span:nth-child(3){background:var(--white)}
-    .mondrian-top span:nth-child(4){background:var(--blue)}
-    .mondrian-top span:nth-child(5){background:var(--navy);border-right:0}
-
-    main{
-      max-width:1100px;
-      margin:0 auto;
-      padding:34px 20px 50px;
-    }
-
-    .hero{
-      display:grid;
-      grid-template-columns:220px minmax(0,1fr);
-      gap:24px;
-      align-items:start;
-    }
-
-    .rowlie-card{
-      background:var(--white);
-      border:5px solid var(--black);
-      box-shadow:10px 10px 0 var(--blue);
-      padding:10px;
-    }
-
-    .rowlie-card img{
-      width:100%;
-      display:block;
-      border:4px solid var(--black);
-      background:var(--paper);
-    }
-
-    .content{
-      background:var(--white);
-      border:5px solid var(--black);
-      box-shadow:12px 12px 0 var(--red);
-      padding:28px;
-    }
-
-    h1,h2,.button{
-      font-family:'Luckiest Guy',Arial,sans-serif;
-      font-weight:400;
-      letter-spacing:.7px;
-    }
-
-    h1{
-      margin:0;
-      font-size:clamp(3rem,7vw,5.6rem);
-      line-height:.95;
-      color:var(--navy);
-    }
-
-    .tagline{
-      margin:8px 0 24px;
-      font-size:1.25rem;
-      font-weight:800;
-    }
-
-    .intro{
-      font-size:1.05rem;
-      line-height:1.55;
-      max-width:720px;
-    }
-
-    .features{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:14px;
-      margin:24px 0;
-    }
-
-    .feature{
-      border:4px solid var(--black);
-      padding:14px;
-      background:var(--white);
-      box-shadow:6px 6px 0 var(--navy);
-    }
-
-    .feature:nth-child(2){box-shadow:6px 6px 0 var(--yellow)}
-    .feature:nth-child(3){box-shadow:6px 6px 0 var(--red)}
-    .feature:nth-child(4){box-shadow:6px 6px 0 var(--blue)}
-
-    .feature h2{
-      margin:0 0 6px;
-      font-size:1.2rem;
-    }
-
-    .feature p{
-      margin:0;
-      line-height:1.4;
-    }
-
-    .button{
-      display:inline-block;
-      margin-top:12px;
-      padding:16px 28px 13px;
-      background:var(--red);
-      color:var(--white);
-      text-decoration:none;
-      border:5px solid var(--black);
-      box-shadow:6px 6px 0 var(--black);
-      font-size:1.35rem;
-      text-transform:uppercase;
-    }
-
-    .button:hover{
-      background:var(--blue);
-      transform:translate(-2px,-2px);
-      box-shadow:8px 8px 0 var(--black);
-    }
-
-    .note{
-      margin-top:18px;
-      padding:12px;
-      border:3px solid var(--black);
-      background:var(--yellow);
-      font-weight:700;
-    }
-
-    footer{
-      text-align:center;
-      margin-top:30px;
-      font-size:.9rem;
-      color:#4b5668;
-    }
-
-    @media(max-width:760px){
-      .hero{
-        grid-template-columns:1fr;
-      }
-
-      .rowlie-card{
-        width:160px;
-      }
-
-      .features{
-        grid-template-columns:1fr;
-      }
-
-      .content{
-        padding:20px;
-      }
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compass | Find Your Direction</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#0b1f3a;--blue:#1657c8;--red:#ef3734;--yellow:#ffd43b;--paper:#f7f4ea;--black:#111}
+body{margin:0;font-family:Nunito,sans-serif;background:var(--paper)}
+.top{height:18px;display:grid;grid-template-columns:2fr 1fr 3fr 1fr 2fr}
+.top div:nth-child(1){background:var(--red)} .top div:nth-child(2){background:var(--yellow)}
+.top div:nth-child(3){background:#fff}.top div:nth-child(4){background:var(--blue)}
+.top div:nth-child(5){background:var(--navy)}
+.wrap{max-width:1100px;margin:auto;padding:30px 20px}
+.hero{display:grid;grid-template-columns:220px 1fr;gap:24px}
+.left,.right{background:#fff;border:5px solid #111;padding:12px}
+.left img{width:100%;display:block}
+h1,h2,.btn{font-family:"Luckiest Guy",cursive;font-weight:400}
+h1{font-size:4rem;margin:.2rem 0}
+.btn{display:inline-block;margin-top:18px;padding:16px 28px;background:var(--red);color:#fff;text-decoration:none;border:4px solid #111}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:20px 0}
+.card{border:3px solid #111;padding:12px}
+@media(max-width:760px){.hero{grid-template-columns:1fr}.left{width:170px}}
+</style>
 </head>
-
 <body>
-  <div class="mondrian-top">
-    <span></span><span></span><span></span><span></span><span></span>
-  </div>
-
-  <main>
-    <section class="hero">
-      <aside class="rowlie-card">
-        <img src="rowlie-compass.png" alt="Rowlie with a compass">
-      </aside>
-
-      <div class="content">
-        <h1>Compass</h1>
-        <p class="tagline">Find Your Direction. Follow Your Curiosity.</p>
-
-        <p class="intro">
-          Compass is a gifted learning platform for middle school students.
-          Explore strengths, set goals, create meaningful projects, build a digital portfolio,
-          earn Passport stamps, and share teacher-approved work in the Compass Showcase.
-        </p>
-
-        <div class="features">
-          <div class="feature">
-            <h2>Explore</h2>
-            <p>Discover interests, strengths, and areas you want to pursue deeply.</p>
-          </div>
-
-          <div class="feature">
-            <h2>Create</h2>
-            <p>Use Challenge Cards and the COMPASS process to build authentic projects.</p>
-          </div>
-
-          <div class="feature">
-            <h2>Reflect</h2>
-            <p>Track gifted goals, grades, growth, and teacher feedback.</p>
-          </div>
-
-          <div class="feature">
-            <h2>Showcase</h2>
-            <p>Build a private portfolio and submit selected work for teacher approval.</p>
-          </div>
-        </div>
-
-        <a class="button" href="https://script.google.com/a/macros/rowlettmiddleacademy.org/s/AKfycbwcfkYd7PvrlotUkpbHFWKeilSfW3imbk5T3mh3icfQjpSGZOnpTizIRpsqfqyOpvrO/exec">
-          Enter Compass
-        </a>
-
-        <div class="note">
-          Before uploading this file to GitHub, replace
-          <strong>https://script.google.com/a/macros/rowlettmiddleacademy.org/s/AKfycbwcfkYd7PvrlotUkpbHFWKeilSfW3imbk5T3mh3icfQjpSGZOnpTizIRpsqfqyOpvrO/exec</strong>
-          with your live Apps Script web app address.
-        </div>
-      </div>
-    </section>
-
-    <footer>
-      Created by Bekka Stasny
-    </footer>
-  </main>
+<div class="top"><div></div><div></div><div></div><div></div><div></div></div>
+<div class="wrap">
+<div class="hero">
+<div class="left"><img src="rowlie-compass.png" alt="Rowlie"></div>
+<div class="right">
+<h1>Compass</h1>
+<h2>Find Your Direction. Follow Your Curiosity.</h2>
+<p>Compass is a gifted learning platform for middle school students. Explore strengths, create meaningful projects, build a digital portfolio, earn Passport stamps, and share teacher-approved work.</p>
+<div class="cards">
+<div class="card"><strong>Explore</strong><br>Discover your interests.</div>
+<div class="card"><strong>Create</strong><br>Build authentic projects.</div>
+<div class="card"><strong>Reflect</strong><br>Track goals and growth.</div>
+<div class="card"><strong>Showcase</strong><br>Share your best work.</div>
+</div>
+<a class="btn" href="https://script.google.com/a/macros/rowlettmiddleacademy.org/s/AKfycbwcfkYd7PvrlotUkpbHFWKeilSfW3imbk5T3mh3icfQjpSGZOnpTizIRpsqfqyOpvrO/exec">Enter Compass</a>
+</div>
+</div>
+</div>
 </body>
 </html>
