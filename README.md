@@ -2,15 +2,29 @@
 
 Find Your Direction. Follow Your Curiosity.
 
-Compass is a gifted education platform designed for middle school students.
+This GitHub Pages landing page opens the live Compass Google Apps Script app.
 
-Features:
-- COMPASS exploration framework
-- Gifted goals
-- Portfolio
-- Passport stamps
-- Teacher dashboard
-- Showcase
-- Resource Vault
+Live app:
+https://script.google.com/a/macros/rowlettmiddleacademy.org/s/AKfycbwcfkYd7PvrlotUkpbHFWKeilSfW3imbk5T3mh3icfQjpSGZOnpTizIRpsqfqyOpvrO/exec
 
-Created by Rebekka Stasny 2026
+## Files to upload
+
+- index.html
+- rowlie-compass.png
+- README.md
+
+## GitHub Pages
+
+In the repository, open:
+
+Settings → Pages
+
+Choose:
+
+- Source: Deploy from a branch
+- Branch: main
+- Folder: / (root)
+
+The expected public address is:
+
+https://ascienceteacher.github.io/compass-gifted/
