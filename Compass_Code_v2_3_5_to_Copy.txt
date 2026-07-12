@@ -1,0 +1,489 @@
+const SS = SpreadsheetApp.getActiveSpreadsheet();
+
+const TAB = {
+  ROSTER:'Roster',
+  PROFILES:'Profiles',
+  PROJECTS:'Projects',
+  RESPONSES:'Responses',
+  FEEDBACK:'Teacher Feedback',
+  RESOURCES:'Resources',
+  WALL:'Wonder Wall',
+  SETTINGS:'Settings',
+  TEACHERS:'Teachers',
+  ADMINS:'Administrators',
+  GOALS:'Gifted Goals',
+  GRADES:'Grade Tracker',
+  STAMPS:'Passport Stamps',
+  STAMP_LIBRARY:'Stamp Library',
+  PORTFOLIO:'Portfolio Artifacts',
+  SHOWCASE:'Showcase'
+};
+
+function doGet(){
+  return HtmlService.createHtmlOutputFromFile('Index')
+    .setTitle('Compass')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+    .addMetaTag('viewport','width=device-width, initial-scale=1, maximum-scale=1');
+}
+
+function setupDatabase(){
+  ensureHeaders_(TAB.ROSTER,['Student ID','First Name','Last Name','Grade','Teacher','Active']);
+  ensureHeaders_(TAB.PROFILES,['Student ID','First Name','Last Name','Grade','Teacher','Interests','Strengths','Preferred Subjects','Learning Preferences','Current Goals','Compass Results','Last Updated']);
+  ensureHeaders_(TAB.PROJECTS,['Project ID','Student ID','Student Name','Teacher','Project Title','Subject Area','Challenge Card','Topic Card','Audience Card','Compass Stage','Status','Project Summary','Created Date','Last Updated']);
+  ensureHeaders_(TAB.RESPONSES,['Response ID','Project ID','Student ID','Compass Stage','Prompt','Student Response','Saved Date']);
+  ensureHeaders_(TAB.FEEDBACK,['Feedback ID','Project ID','Student ID','Student Name','Teacher','Feedback','Next Step','Review Status','Date']);
+  ensureHeaders_(TAB.RESOURCES,['Resource ID','Subject Area','Topic','Title','Description','URL','Resource Type','Grade Range','Source','Active']);
+  ensureHeaders_(TAB.WALL,['Post ID','Project ID','Student ID','Student Display Name','Project Title','Subject Area','Description','Project Link','Approved','Date Submitted','Date Approved']);
+  ensureHeaders_(TAB.SETTINGS,['Setting','Value','Description']);
+  ensureHeaders_(TAB.TEACHERS,['Teacher','Password','Active']);
+  ensureHeaders_(TAB.ADMINS,['Administrator','Password','Active']);
+  ensureHeaders_(TAB.GOALS,['Goal ID','Student ID','Student Name','Grade','Teacher','School Year','Academic Goal','Creativity/Innovation Goal','Communication/Leadership Goal','Gifted Growth Goal','Action Steps','Support Needed','Student Reflection','Teacher Comment','Last Updated']);
+  ensureHeaders_(TAB.GRADES,['Grade Entry ID','Student ID','Student Name','Grade Level','Teacher','Checkpoint','ELA','Math','Science','Social Studies','Arts/Elective','Other','Reflection','Action Step','Entry Date']);
+  ensureHeaders_(TAB.STAMPS,['Award ID','Student ID','Student Name','Stamp Name','Description','Awarded By','Date Awarded']);
+  ensureHeaders_(TAB.STAMP_LIBRARY,['Stamp Name','Icon','Description','Active']);
+  ensureHeaders_(TAB.PORTFOLIO,['Artifact ID','Student ID','Student Name','Public Display Name','Grade','Teacher','Project ID','Title','Description','Reflection','File Name','File Type','Drive File ID','Drive URL','Thumbnail URL','Visibility','Proud Of This','Status','Submitted Date','Approved By','Approved Date']);
+  ensureHeaders_(TAB.SHOWCASE,['Showcase ID','Artifact ID','Student ID','Public Display Name','Grade','Project Title','Subject Area','Description','Reflection','Drive URL','Thumbnail URL','Approved','Approved By','Approved Date']);
+  seedDefaults_();
+  return {success:true,message:'Compass v2.2 database is ready.'};
+}
+
+function loginStudent(studentId){
+  const id=clean_(studentId);
+  if(!id)return {success:false,message:'Please enter your student ID.'};
+  const s=findStudent_(id);
+  if(!s)return {success:false,message:'Student ID not found.'};
+  if(!isTrue_(s.active))return {success:false,message:'This student account is not active.'};
+  ensureProfile_(s);
+  return {success:true,student:s,dashboard:getStudentDashboard(id)};
+}
+
+function loginStaff(role,name,password){
+  role=clean_(role).toLowerCase();
+  name=clean_(name);
+  password=clean_(password);
+  const tab=role==='administrator'?TAB.ADMINS:TAB.TEACHERS;
+  const rows=objects_(tab);
+  const nameKey=role==='administrator'?'Administrator':'Teacher';
+  const match=rows.find(r=>clean_(r[nameKey]).toLowerCase()===name.toLowerCase());
+  if(!match || clean_(match.Password)!==password || !isTrue_(match.Active)){
+    return {success:false,message:'Account name or password is incorrect.'};
+  }
+  return {success:true,user:{role,name:match[nameKey]},dashboard:getStaffDashboard(role,match[nameKey])};
+}
+
+function getStudentDashboard(id){
+  return {
+    profile:getProfile_(id),
+    projects:getProjects_(id),
+    feedback:getFeedback_(id),
+    goals:getGoals_(id),
+    grades:getGrades_(id),
+    stamps:getStamps_(id),
+    stampLibrary:getStampLibrary_(),
+    portfolio:getPortfolio_(id),
+    showcase:getApprovedShowcase_()
+  };
+}
+
+function getStaffDashboard(role,name){
+  const allStudents=getActiveStudents_();
+  const students=role==='administrator'?allStudents:allStudents.filter(s=>clean_(s.teacher).toLowerCase()===clean_(name).toLowerCase());
+  const ids=students.map(s=>s.studentId);
+  return {
+    students,
+    projects:objects_(TAB.PROJECTS).filter(r=>ids.includes(clean_(r['Student ID']))),
+    goals:objects_(TAB.GOALS).filter(r=>ids.includes(clean_(r['Student ID']))),
+    grades:objects_(TAB.GRADES).filter(r=>ids.includes(clean_(r['Student ID']))),
+    stamps:objects_(TAB.STAMPS).filter(r=>ids.includes(clean_(r['Student ID']))),
+    resources:getResources('all'),
+    stampLibrary:getStampLibrary_(),
+    portfolio:objects_(TAB.PORTFOLIO).filter(r=>ids.includes(clean_(r['Student ID']))),
+    showcase:getApprovedShowcase_()
+  };
+}
+
+function getStudentRecord(studentId){
+  const s=findStudent_(studentId);
+  if(!s)throw new Error('Student not found.');
+  return {student:s,dashboard:getStudentDashboard(studentId)};
+}
+
+function saveStudentProfile(p){
+  const s=findStudent_(p.studentId);
+  if(!s)throw new Error('Student not found.');
+  upsertBy_(TAB.PROFILES,'Student ID',s.studentId,{
+    'Student ID':s.studentId,'First Name':s.firstName,'Last Name':s.lastName,'Grade':s.grade,'Teacher':s.teacher,
+    'Interests':clean_(p.interests),'Strengths':clean_(p.strengths),'Preferred Subjects':clean_(p.preferredSubjects),
+    'Learning Preferences':clean_(p.learningPreferences),'Current Goals':clean_(p.currentGoals),
+    'Compass Results':clean_(p.compassResults),'Last Updated':new Date()
+  });
+  return {success:true,message:'Compass profile saved.'};
+}
+
+function saveGiftedGoals(g){
+  const s=findStudent_(g.studentId);
+  if(!s)throw new Error('Student not found.');
+  const schoolYear=clean_(g.schoolYear)||defaultSchoolYear_();
+  const rows=objects_(TAB.GOALS);
+  const existing=rows.find(r=>clean_(r['Student ID'])===s.studentId && clean_(r['School Year'])===schoolYear);
+  const goalId=existing?existing['Goal ID']:id_('GOAL');
+  upsertBy_(TAB.GOALS,'Goal ID',goalId,{
+    'Goal ID':goalId,'Student ID':s.studentId,'Student Name':s.fullName,'Grade':s.grade,'Teacher':s.teacher,
+    'School Year':schoolYear,'Academic Goal':clean_(g.academicGoal),
+    'Creativity/Innovation Goal':clean_(g.creativityGoal),
+    'Communication/Leadership Goal':clean_(g.communicationGoal),
+    'Gifted Growth Goal':clean_(g.growthGoal),'Action Steps':clean_(g.actionSteps),
+    'Support Needed':clean_(g.supportNeeded),'Student Reflection':clean_(g.studentReflection),
+    'Teacher Comment':existing?existing['Teacher Comment']:'','Last Updated':new Date()
+  });
+  return {success:true,message:'Gifted goals saved.',goalId};
+}
+
+function saveTeacherGoalComment(goalId,comment){
+  updateField_(TAB.GOALS,'Goal ID',goalId,{'Teacher Comment':clean_(comment),'Last Updated':new Date()});
+  return {success:true};
+}
+
+function saveGradeCheckpoint(g){
+  const s=findStudent_(g.studentId);
+  if(!s)throw new Error('Student not found.');
+  const checkpoint=clean_(g.checkpoint);
+  if(!checkpoint)throw new Error('Choose a checkpoint.');
+  const rows=objects_(TAB.GRADES);
+  const existing=rows.find(r=>clean_(r['Student ID'])===s.studentId && clean_(r.Checkpoint)===checkpoint);
+  const entryId=existing?existing['Grade Entry ID']:id_('GRADE');
+  upsertBy_(TAB.GRADES,'Grade Entry ID',entryId,{
+    'Grade Entry ID':entryId,'Student ID':s.studentId,'Student Name':s.fullName,
+    'Grade Level':s.grade,'Teacher':s.teacher,'Checkpoint':checkpoint,
+    'ELA':clean_(g.ela),'Math':clean_(g.math),'Science':clean_(g.science),
+    'Social Studies':clean_(g.socialStudies),'Arts/Elective':clean_(g.arts),
+    'Other':clean_(g.other),'Reflection':clean_(g.reflection),
+    'Action Step':clean_(g.actionStep),'Entry Date':new Date()
+  });
+  return {success:true,message:'Grades saved.',entryId};
+}
+
+function saveProject(p){
+  const s=findStudent_(p.studentId);
+  if(!s)throw new Error('Student not found.');
+  const projectId=clean_(p.projectId)||id_('PROJECT');
+  const existing=findBy_(TAB.PROJECTS,'Project ID',projectId);
+  upsertBy_(TAB.PROJECTS,'Project ID',projectId,{
+    'Project ID':projectId,'Student ID':s.studentId,'Student Name':s.fullName,'Teacher':s.teacher,
+    'Project Title':clean_(p.projectTitle)||'Untitled Exploration','Subject Area':clean_(p.subjectArea),
+    'Challenge Card':clean_(p.challengeCard),'Topic Card':clean_(p.topicCard),
+    'Audience Card':clean_(p.audienceCard),'Compass Stage':clean_(p.compassStage)||'Curiosity',
+    'Status':clean_(p.status)||'Exploring','Project Summary':clean_(p.projectSummary),
+    'Created Date':existing?existing['Created Date']:new Date(),'Last Updated':new Date()
+  });
+  return {success:true,projectId,message:'Project saved.'};
+}
+
+function saveCompassResponse(r){
+  const rows=objects_(TAB.RESPONSES);
+  const existing=rows.find(x=>clean_(x['Project ID'])===clean_(r.projectId)&&clean_(x['Student ID'])===clean_(r.studentId)&&clean_(x['Compass Stage'])===clean_(r.compassStage));
+  const responseId=existing?existing['Response ID']:id_('RESPONSE');
+  upsertBy_(TAB.RESPONSES,'Response ID',responseId,{
+    'Response ID':responseId,'Project ID':clean_(r.projectId),'Student ID':clean_(r.studentId),
+    'Compass Stage':clean_(r.compassStage),'Prompt':clean_(r.prompt),
+    'Student Response':clean_(r.studentResponse),'Saved Date':new Date()
+  });
+  updateField_(TAB.PROJECTS,'Project ID',r.projectId,{'Compass Stage':clean_(r.compassStage),'Last Updated':new Date()});
+  return {success:true,responseId};
+}
+
+function getProjectResponses(projectId,studentId){
+  return objects_(TAB.RESPONSES).filter(r=>clean_(r['Project ID'])===clean_(projectId)&&clean_(r['Student ID'])===clean_(studentId));
+}
+
+function submitProjectForReview(projectId,studentId){
+  const p=findBy_(TAB.PROJECTS,'Project ID',projectId);
+  if(!p||clean_(p['Student ID'])!==clean_(studentId))return {success:false,message:'Project not found.'};
+  updateField_(TAB.PROJECTS,'Project ID',projectId,{'Status':'Ready for Review','Last Updated':new Date()});
+  return {success:true,message:'Submitted for teacher review.'};
+}
+
+function saveTeacherFeedback(f){
+  const p=findBy_(TAB.PROJECTS,'Project ID',f.projectId);
+  if(!p)throw new Error('Project not found.');
+  const feedbackId=id_('FEEDBACK');
+  appendObject_(TAB.FEEDBACK,{
+    'Feedback ID':feedbackId,'Project ID':clean_(f.projectId),'Student ID':clean_(p['Student ID']),
+    'Student Name':clean_(p['Student Name']),'Teacher':clean_(f.teacher),
+    'Feedback':clean_(f.feedback),'Next Step':clean_(f.nextStep),
+    'Review Status':clean_(f.reviewStatus)||'Reviewed','Date':new Date()
+  });
+  updateField_(TAB.PROJECTS,'Project ID',f.projectId,{'Status':clean_(f.reviewStatus)||'Reviewed','Last Updated':new Date()});
+  return {success:true,message:'Feedback saved.'};
+}
+
+function awardStamp(a){
+  const s=findStudent_(a.studentId);
+  if(!s)throw new Error('Student not found.');
+  const lib=getStampLibrary_().find(x=>x.name===a.stampName);
+  appendObject_(TAB.STAMPS,{
+    'Award ID':id_('STAMP'),'Student ID':s.studentId,'Student Name':s.fullName,
+    'Stamp Name':clean_(a.stampName),'Description':lib?lib.description:'',
+    'Awarded By':clean_(a.awardedBy),'Date Awarded':new Date()
+  });
+  return {success:true,message:'Passport stamp awarded.'};
+}
+
+
+function savePortfolioArtifact(a){
+  const s=findStudent_(a.studentId);
+  if(!s)throw new Error('Student not found.');
+
+  const visibility=clean_(a.visibility)||'Private Portfolio Only';
+  const displayName=clean_(a.publicDisplayName)||defaultDisplayName_(s);
+  const artifactId=id_('ARTIFACT');
+
+  let driveFileId='',driveUrl='',thumbnailUrl='',fileName='',fileType='';
+  if(a.fileData && a.fileName){
+    const saved=savePortfolioFile_(s,a);
+    driveFileId=saved.fileId;
+    driveUrl=saved.url;
+    thumbnailUrl=saved.thumbnailUrl;
+    fileName=saved.fileName;
+    fileType=saved.fileType;
+  }
+
+  appendObject_(TAB.PORTFOLIO,{
+    'Artifact ID':artifactId,
+    'Student ID':s.studentId,
+    'Student Name':s.fullName,
+    'Public Display Name':displayName,
+    'Grade':s.grade,
+    'Teacher':s.teacher,
+    'Project ID':clean_(a.projectId),
+    'Title':clean_(a.title)||'Untitled Portfolio Item',
+    'Description':clean_(a.description),
+    'Reflection':clean_(a.reflection),
+    'File Name':fileName,
+    'File Type':fileType,
+    'Drive File ID':driveFileId,
+    'Drive URL':driveUrl,
+    'Thumbnail URL':thumbnailUrl,
+    'Visibility':visibility,
+    'Proud Of This':a.proudOfThis===true||clean_(a.proudOfThis).toLowerCase()==='true',
+    'Status':visibility==='Submit to Compass Showcase'?'Pending Review':'Saved',
+    'Submitted Date':new Date(),
+    'Approved By':'',
+    'Approved Date':''
+  });
+
+  return {success:true,message:visibility==='Submit to Compass Showcase'?'Saved and submitted for review.':'Saved to your portfolio.',artifactId};
+}
+
+function savePortfolioFile_(student,a){
+  const root=getOrCreateFolder_('Compass Portfolio');
+  const gradeFolder=getOrCreateChildFolder_(root,'Grade '+student.grade);
+  const teacherFolder=getOrCreateChildFolder_(gradeFolder,clean_(student.teacher)||'Unassigned');
+  const studentFolder=getOrCreateChildFolder_(teacherFolder,student.studentId+' - '+student.fullName);
+
+  const raw=String(a.fileData);
+  const match=raw.match(/^data:(.+?);base64,(.+)$/);
+  if(!match)throw new Error('The uploaded file could not be read.');
+
+  const mime=match[1];
+  const bytes=Utilities.base64Decode(match[2]);
+  const safeName=String(a.fileName).replace(/[^\w.\- ()]/g,'_');
+  const blob=Utilities.newBlob(bytes,mime,safeName);
+  const file=studentFolder.createFile(blob);
+
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK,DriveApp.Permission.VIEW);
+
+  return {
+    fileId:file.getId(),
+    url:file.getUrl(),
+    thumbnailUrl:'https://drive.google.com/thumbnail?id='+file.getId()+'&sz=w1000',
+    fileName:safeName,
+    fileType:mime
+  };
+}
+
+function getOrCreateFolder_(name){
+  const folders=DriveApp.getFoldersByName(name);
+  return folders.hasNext()?folders.next():DriveApp.createFolder(name);
+}
+
+function getOrCreateChildFolder_(parent,name){
+  const folders=parent.getFoldersByName(name);
+  return folders.hasNext()?folders.next():parent.createFolder(name);
+}
+
+function getPortfolio_(studentId){
+  return objects_(TAB.PORTFOLIO).filter(r=>clean_(r['Student ID'])===clean_(studentId)).reverse();
+}
+
+function getPendingShowcase(role,name){
+  let rows=objects_(TAB.PORTFOLIO).filter(r=>clean_(r.Status)==='Pending Review');
+  if(clean_(role).toLowerCase()!=='administrator'){
+    rows=rows.filter(r=>clean_(r.Teacher).toLowerCase()===clean_(name).toLowerCase());
+  }
+  return rows;
+}
+
+function approveShowcaseArtifact(artifactId,approvedBy,approved){
+  const artifact=findBy_(TAB.PORTFOLIO,'Artifact ID',artifactId);
+  if(!artifact)throw new Error('Portfolio item not found.');
+
+  if(approved!==true){
+    updateField_(TAB.PORTFOLIO,'Artifact ID',artifactId,{
+      'Status':'Returned to Student',
+      'Approved By':clean_(approvedBy),
+      'Approved Date':new Date()
+    });
+    return {success:true,message:'The item was returned to the student.'};
+  }
+
+  const showcaseId=id_('SHOWCASE');
+  appendObject_(TAB.SHOWCASE,{
+    'Showcase ID':showcaseId,
+    'Artifact ID':artifactId,
+    'Student ID':artifact['Student ID'],
+    'Public Display Name':artifact['Public Display Name']||privacyNameFromFull_(artifact['Student Name']),
+    'Grade':artifact.Grade,
+    'Project Title':artifact.Title,
+    'Subject Area':'Portfolio',
+    'Description':artifact.Description,
+    'Reflection':artifact.Reflection,
+    'Drive URL':artifact['Drive URL'],
+    'Thumbnail URL':artifact['Thumbnail URL'],
+    'Approved':true,
+    'Approved By':clean_(approvedBy),
+    'Approved Date':new Date()
+  });
+
+  updateField_(TAB.PORTFOLIO,'Artifact ID',artifactId,{
+    'Status':'Published to Showcase',
+    'Approved By':clean_(approvedBy),
+    'Approved Date':new Date()
+  });
+
+  return {success:true,message:'Published to the Compass Showcase.'};
+}
+
+function getApprovedShowcase_(){
+  return objects_(TAB.SHOWCASE).filter(r=>isTrue_(r.Approved)).reverse();
+}
+
+function defaultDisplayName_(s){
+  return s.firstName+' '+(s.lastName?String(s.lastName).charAt(0)+'.':'');
+}
+
+function privacyNameFromFull_(fullName){
+  const parts=clean_(fullName).split(/\s+/).filter(Boolean);
+  if(!parts.length)return 'Compass Student';
+  return parts[0]+(parts.length>1?' '+parts[parts.length-1].charAt(0)+'.':'');
+}
+
+function getResources(subject){
+  const target=clean_(subject).toLowerCase();
+  return objects_(TAB.RESOURCES).filter(r=>isTrue_(r.Active) && (!target||target==='all'||clean_(r['Subject Area']).toLowerCase()===target))
+    .map(r=>({resourceId:r['Resource ID'],subjectArea:r['Subject Area'],topic:r.Topic,title:r.Title,description:r.Description,url:r.URL,resourceType:r['Resource Type'],gradeRange:r['Grade Range'],source:r.Source}));
+}
+
+function ensureHeaders_(name,headers){
+  let sh=SS.getSheetByName(name)||SS.insertSheet(name);
+  let existing=sh.getLastColumn()?sh.getRange(1,1,1,sh.getLastColumn()).getDisplayValues()[0]:[];
+  headers.forEach(h=>{if(!existing.includes(h)){sh.getRange(1,sh.getLastColumn()+1).setValue(h);existing.push(h)}});
+  sh.getRange(1,1,1,sh.getLastColumn()).setFontWeight('bold').setBackground('#0b1f3a').setFontColor('#fff');
+  sh.setFrozenRows(1);
+}
+
+function seedDefaults_(){
+  seedRows_(TAB.TEACHERS,'Teacher',[
+    {'Teacher':'Powers','Password':'ChangeMe123','Active':true},
+    {'Teacher':'Stasny','Password':'ChangeMe123','Active':true},
+    {'Teacher':'Morelli','Password':'ChangeMe123','Active':true}
+  ]);
+  seedRows_(TAB.ADMINS,'Administrator',[
+    {'Administrator':'Coordinator','Password':'ChangeMe123','Active':true}
+  ]);
+  seedRows_(TAB.STAMP_LIBRARY,'Stamp Name',[
+    {'Stamp Name':'Scientific Investigator','Icon':'🔬','Description':'Uses evidence and scientific thinking to investigate a meaningful question.','Active':true},
+    {'Stamp Name':'Creative Communicator','Icon':'✍️','Description':'Communicates complex ideas in an original and effective way.','Active':true},
+    {'Stamp Name':'Mathematical Thinker','Icon':'🧩','Description':'Uses patterns, logic, or quantitative reasoning to solve problems.','Active':true},
+    {'Stamp Name':'Historical Explorer','Icon':'🏛️','Description':'Uses sources and perspective to deepen historical understanding.','Active':true},
+    {'Stamp Name':'Artistic Innovator','Icon':'🎨','Description':'Uses artistic choices to express, interpret, or transform ideas.','Active':true},
+    {'Stamp Name':'Community Leader','Icon':'🌎','Description':'Uses leadership to make a positive contribution to a community.','Active':true},
+    {'Stamp Name':'Deep Researcher','Icon':'📚','Description':'Pursues a question deeply using credible and varied sources.','Active':true},
+    {'Stamp Name':'Cross-Curricular Connector','Icon':'🔗','Description':'Makes meaningful connections across subject areas.','Active':true},
+    {'Stamp Name':'Persistent Problem-Solver','Icon':'🧭','Description':'Revises, persists, and responds productively to challenge.','Active':true},
+    {'Stamp Name':'Thoughtful Reflector','Icon':'💭','Description':'Reflects honestly and uses feedback to improve.','Active':true},
+    {'Stamp Name':'Goal Getter','Icon':'⭐','Description':'Makes measurable progress toward an annual gifted goal.','Active':true},
+    {'Stamp Name':'Growth Navigator','Icon':'🗺️','Description':'Uses grades, reflection, and action steps to guide growth.','Active':true}
+  ]);
+  seedRows_(TAB.SETTINGS,'Setting',[
+    {'Setting':'App Name','Value':'Compass','Description':'Student-facing app name'},
+    {'Setting':'Default School Year','Value':defaultSchoolYear_(),'Description':'Used for annual gifted goals'}
+  ]);
+}
+
+function seedRows_(tab,key,rows){
+  const existing=objects_(tab).map(r=>clean_(r[key]).toLowerCase());
+  rows.forEach(r=>{if(!existing.includes(clean_(r[key]).toLowerCase()))appendObject_(tab,r)});
+}
+
+function getActiveStudents_(){
+  return objects_(TAB.ROSTER).map(r=>({
+    studentId:clean_(r['Student ID']),firstName:r['First Name'],lastName:r['Last Name'],
+    fullName:(clean_(r['First Name'])+' '+clean_(r['Last Name'])).trim(),
+    grade:r.Grade,teacher:r.Teacher,active:r.Active
+  })).filter(s=>s.studentId&&isTrue_(s.active));
+}
+
+function findStudent_(id){return getActiveStudents_().find(s=>s.studentId===clean_(id))||null}
+function getProfile_(id){const r=findBy_(TAB.PROFILES,'Student ID',id);return r?profileObj_(r):null}
+function getGoals_(id){return objects_(TAB.GOALS).filter(r=>clean_(r['Student ID'])===clean_(id)).reverse()}
+function getGrades_(id){return objects_(TAB.GRADES).filter(r=>clean_(r['Student ID'])===clean_(id))}
+function getStamps_(id){return objects_(TAB.STAMPS).filter(r=>clean_(r['Student ID'])===clean_(id)).reverse()}
+function getStampLibrary_(){return objects_(TAB.STAMP_LIBRARY).filter(r=>isTrue_(r.Active)).map(r=>({name:r['Stamp Name'],icon:r.Icon,description:r.Description}))}
+function getProjects_(id){return objects_(TAB.PROJECTS).filter(r=>clean_(r['Student ID'])===clean_(id)).reverse().map(projectObj_)}
+function getFeedback_(id){return objects_(TAB.FEEDBACK).filter(r=>clean_(r['Student ID'])===clean_(id)).reverse()}
+function ensureProfile_(s){if(!findBy_(TAB.PROFILES,'Student ID',s.studentId))appendObject_(TAB.PROFILES,{'Student ID':s.studentId,'First Name':s.firstName,'Last Name':s.lastName,'Grade':s.grade,'Teacher':s.teacher,'Last Updated':new Date()})}
+function profileObj_(r){return {studentId:r['Student ID'],firstName:r['First Name'],lastName:r['Last Name'],grade:r.Grade,teacher:r.Teacher,interests:r.Interests||'',strengths:r.Strengths||'',preferredSubjects:r['Preferred Subjects']||'',learningPreferences:r['Learning Preferences']||'',currentGoals:r['Current Goals']||'',compassResults:r['Compass Results']||''}}
+function projectObj_(r){return {projectId:r['Project ID'],studentId:r['Student ID'],studentName:r['Student Name'],teacher:r.Teacher,projectTitle:r['Project Title'],subjectArea:r['Subject Area'],challengeCard:r['Challenge Card'],topicCard:r['Topic Card'],audienceCard:r['Audience Card'],compassStage:r['Compass Stage'],status:r.Status,projectSummary:r['Project Summary'],createdDate:r['Created Date'],lastUpdated:r['Last Updated']}}
+
+function objects_(tab){
+  const sh=sheet_(tab),vals=sh.getDataRange().getDisplayValues();
+  if(vals.length<2)return [];
+  const h=vals[0];
+  return vals.slice(1).filter(r=>r.some(v=>v!=='')).map(r=>{const o={};h.forEach((k,i)=>o[k]=r[i]);return o});
+}
+function findBy_(tab,key,value){return objects_(tab).find(r=>clean_(r[key])===clean_(value))||null}
+function appendObject_(tab,obj){const sh=sheet_(tab),h=sh.getRange(1,1,1,sh.getLastColumn()).getDisplayValues()[0];sh.appendRow(h.map(k=>obj[k]!==undefined?obj[k]:''))}
+function upsertBy_(tab,key,value,obj){
+  const sh=sheet_(tab),vals=sh.getDataRange().getDisplayValues(),h=vals[0],keyCol=h.indexOf(key);
+  let row=-1;for(let i=1;i<vals.length;i++)if(clean_(vals[i][keyCol])===clean_(value)){row=i+1;break}
+  const arr=h.map(k=>obj[k]!==undefined?obj[k]:'');
+  if(row>0)sh.getRange(row,1,1,h.length).setValues([arr]);else sh.appendRow(arr);
+}
+function updateField_(tab,key,value,changes){
+  const sh=sheet_(tab),vals=sh.getDataRange().getDisplayValues(),h=vals[0],keyCol=h.indexOf(key);
+  for(let i=1;i<vals.length;i++)if(clean_(vals[i][keyCol])===clean_(value)){Object.keys(changes).forEach(k=>{const c=h.indexOf(k);if(c>=0)sh.getRange(i+1,c+1).setValue(changes[k])});return}
+}
+function sheet_(name){const sh=SS.getSheetByName(name);if(!sh)throw new Error('Missing sheet: '+name);return sh}
+function clean_(v){return v==null?'':String(v).trim()}
+function id_(p){return p+'-'+Utilities.getUuid()}
+function isTrue_(v){return ['true','yes','1','active'].includes(clean_(v).toLowerCase())}
+function defaultSchoolYear_(){const d=new Date(),y=d.getFullYear(),m=d.getMonth()+1;return m>=7?`${y}-${y+1}`:`${y-1}-${y}`}
+
+
+/**
+ * Run this function ONCE from the Apps Script editor after adding portfolio uploads.
+ * It requests the Google Drive permission needed to create the Compass Portfolio folders.
+ */
+function authorizeCompassDrive() {
+  const rootName = 'Compass Portfolio';
+  const folders = DriveApp.getFoldersByName(rootName);
+
+  if (folders.hasNext()) {
+    folders.next();
+  } else {
+    DriveApp.createFolder(rootName);
+  }
+
+  return 'Google Drive access is authorized for Compass.';
+}
